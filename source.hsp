@@ -1,0 +1,325 @@
+#include "src/console.as"
+#include "src/value.as"
+#include "src/path.as"
+#packopt hide 1
+#packopt name "VirtualConsole.exe"
+/*****************************************************************************************************************************************************
+	KOS Virtual Console Core ver.1.5.0b
+	注:作者は中学生なので、英語が間違っていることもあろうかと思いますが、ご了承ください。
+	また、ソースの頭の英語に間違いがありましたら、ksoft2015@gmail.com までお知らせください。
+/****************************************************************************************************************************************************/
+screen 0,640,480,0
+title "HSPPO-Adv-1.5.0b"
+cls 4
+//onerror goto *errorsys
+color 255,255,255
+font "MS gothic",16
+objsize 64,24,16
+onkey gosub *keyput
+*start
+	valueinit
+	setvalue "return","\n",2147483647
+	consoleinit
+	sdim console,1000
+	dim ky,256
+	dim maeky,256
+	dim ret
+	sdim stdrunpl,10000
+	sdim retstr,10
+	sdim showings,1000
+	setvalue "doing","1"
+	dim tmp
+	dim tmppo
+	sdim sgmj,100
+	dim shift
+	sdim meirei,1000
+	sdim meireipal,1000,20
+	sdim stdrunin,1000
+	dim kaisekival
+	sdim systemmode
+	sdim valall,20000
+//	sdim gets,10000
+	sdim scripts,640000
+	sdim systempath,2000
+	sdim systemset,4000//systeminfo.ksyを読み込むための変数。
+	sdim systemstrtmp,2000//systeminfo.ksyを解釈する段階で使用する。type(今はこれcatになった)命令でも使用する。
+	sdim systemstrtmpp,200
+	sdim systemoprc,128//systeminfo.ksyを解釈する段階で使用する。
+	sdim systemroot,4000//ルートディレクトリー。
+	sdim systemdirlist,4000//ルートディレクトリーを探索するのに使う。ls命令でも利用する。
+	sdim systemcur,1000//カレントディレクトリー。
+	sdim systemcur_,1000//カレントディレクトリー。
+	systemcur=""
+	exist dir_exe+"\\systeminfo.ksy"
+	if strsize=-1{//実行ファイルと同じ階層にsysteminfo.ksyがない場合。
+		exist "systeminfo.ksy"
+		if strsize=-1{//さらに、起動時のカレントディレクトリーにもない場合。起動失敗。
+			mes "Boot error!\"systeminfo.ksy\" is not found.\n"+dir_exe
+			stop
+		}else{//起動時のカレントディレクトリーにはある場合。
+			systempath=dir_cur
+			bload "systeminfo.ksy",systemset
+		}
+	}else{//実行ファイルと同じ階層にある場合。
+		systempath=dir_exe
+		bload dir_exe+"\\systeminfo.ksy",systemset
+	}
+	chdir systempath
+/*	dirlist systemdirlist,"*.*",5//ルートを探す。
+	if instr(systemdirlist,0,"\nROOT\n")!-1{
+*/		systemroot=systempath
+		chdir systemroot
+	//}
+	setvalue "@systempath",systempath,2147483647
+	notesel systemset
+	repeat notemax
+		noteget systemstrtmp,cnt
+		getstr systemoprc,systemstrtmp,0,'=',128
+		if systemoprc="ROOT"{
+			systemroot=strmid(systemstrtmzp,5,4000)
+			exist systemroot+"\\ROOTFS.KSY"
+			if strsize=-1{
+				consoleadd "WARNING:\""+systemroot+"\" is not found.\n"
+			}else{
+				chdir systemroot
+			}
+		}
+		if systemoprc="po_mode"{
+			systemmode=strmid(systemstrtmp,8,20)
+			setvalue "@systemmode",systemmode,2147483647
+			
+		}
+		
+		
+	loop
+	setvalue "@systemroot",systemroot,32
+	//sdim scriptline
+	//sdim scriptnest
+	setvalue "scriptnest","1"
+	sdim stopscr,640000,8
+	dim stopscrline,8
+	
+*main
+	if int(valueshow("doing"))\10=3:gosub *keys//キーボード入力を待つ場合。
+	if ret!0{
+		if int(valueshow("doing"))\10=3 & ginfo(2)!-1{
+			gosub *keyboard_locales
+		}
+	}
+	
+	if int(valueshow("doing"))=1{//コンソール開始時の挙動。直ちにプロンプトを表示し、キーボード入力を待つ。
+		stdrunin="script BEGIN.sh"
+		setvalue "doing","150"
+	}
+	if int(valueshow("doing"))=100 | int(valueshow("doing"))=150:gosub *doings//コマンドを実行する。100は通常、150はスクリプト。
+	
+	if int(valueshow("doing"))=30{//コマンド実行が終了した場合に、プロンプトを表示して待つための処理を行う。
+		setvalue "doing","3"
+		consoleadd valueshow("prompt")
+	}
+	if int(valueshow("doing"))=50{//スクリプト時、命令がひとつ実行し終わったときにここに飛ぶ。行をひとつ下にずらしてまた実行する。
+		setvalue "doing","150"
+		//consolemon+="\n"
+		notesel scripts
+		noteget stdrunin,scriptline
+		scriptline++
+		if scriptline>notemax{
+			setvalue "scriptnest",str(int(valueshow("scriptnest"))-1)
+			//doing=30
+			if int(valueshow("scriptnest"))!-1{
+				sdim scripts,640000
+				scripts=stopscr(0)
+				scriptline=stopscrline(0)
+				repeat 7
+					stopscr(cnt)=stopscr(cnt+1)
+					stopscrline(cnt)=stopscrline(cnt+1)
+				loop
+			}
+		}
+		getkey tmp,35
+		if tmp=1{
+			setvalue "scriptnest","-1"
+			consoleadd "Script job is canseled.\n"
+		}
+		if int(valueshow("scriptnest"))=-1{
+			setvalue "doing","30"
+		}
+	}
+	if int(valueshow("doing"))=160{
+		setvalue valueshow("@inputing"),stdrun()
+		if tmppo=150:setvalue "doing","50"
+		if tmppo=100:setvalue "doing","30"
+	}
+	await 1
+	goto *main
+	stop
+
+*showconsole
+	return
+*keys
+	ret=tmp
+	tmp=0
+	return
+*keyboard_locales
+	#include "keyboard-settings/keyboard-jp.as"
+	return
+*doings
+	if int(valueshow("doing"))!150:stdrunin=stdrun()
+	gosub *oppara
+	if meirei="":goto *endcom
+	if strmid(meirei,0,1)="#"{
+		goto *endcom
+	}
+	if meirei="echo"{
+		consoleadd valall
+		if int(valueshow("echo.autoreturn"))=1:consoleadd "\n"
+		goto *endcom
+	}
+	if meirei="system'reset"{
+		consoleinit
+		goto *endcom
+	}
+	if meirei="wait"{
+		await 0
+		await int(meireipal(0))
+		goto *endcom
+	}
+	if meirei="goline"{
+		scriptline=int(meireipal(0))
+		goto *endcom
+	}
+	if meirei="goto"{
+		notesel scripts
+		repeat notemax
+			noteget systemstrtmp,cnt
+			if systemstrtmp=("label "+meireipal(0)){
+				scriptline=cnt
+			}
+		loop
+		goto *endcom
+	}
+	if meirei="setvalue"{
+		setvalue meireipal(0),strmid(valall,strlen(meireipal(0))+1,strlen(valall))
+		if stat<0{
+			setvalue "ERRORCODE","32"
+			consoleadd "Cannot Write value!\n"
+		}
+		goto *endcom
+	}
+	if meirei="label"{
+		goto *endcom
+	}
+	if meirei="cmpif"{
+		if meireipal(0)!meireipal(1):scriptline++
+		goto *endcom
+	}
+	if meirei="input"{
+		if meireipal(0)="":goto *endcom
+		setvalue "@inputing",meireipal(0)
+		tmppo=int(valueshow("doing"))
+		setvalue "doing","63"
+		
+		goto *endcom
+	}
+	if meirei="valuernd"{
+		setvalue meireipal(0),str(rnd(int(meireipal(1))))
+		goto *endcom
+	}
+	if meirei="valuepp"{
+		setvalue meireipal(0),str(int(valueshow(meireipal(0)))+1)
+		goto *endcom
+	}
+	if meirei="valuedd"{
+		setvalue meireipal(0),str(int(valueshow(meireipal(0)))-1)
+		goto *endcom
+	}
+	#include "src/Command-list-adc.as"
+	#include "src/DIRcommand.as"
+	#include "src/strtools.as"
+	
+	if meirei="script"{
+		exist meireipal(0)
+		if strsize!-1{
+			if int(valueshow("scriptnest"))!-1{
+				repeat 7
+					stopscr(7-cnt)=stopscr(6-cnt)
+					stopscrline(7-cnt)=stopscrline(6-cnt)
+				loop
+				stopscrline(0)=scriptline
+				stopscr(0)=scripts
+			}
+			sdim scripts,640000
+			bload meireipal(0),scripts
+			scriptline=0
+			setvalue "scriptnest",str(int(valueshow("scriptnest"))+1)
+			setvalue "doing","50"
+			repeat 20
+					setvalue "@ASCCALL"+cnt,valueshow("@A"+cnt),8
+			loop
+			goto *endcom_scr
+		}else{
+			consoleadd "\""+meireipal(0)+"\":File not exists.\n"
+			goto *endcom_scr
+		}
+	}
+		exist systemroot+"\\bin\\"+meirei+".sh"
+		if strsize!-1{
+			if int(valueshow("scriptnest"))!-1{
+				repeat 7
+					stopscr(7-cnt)=stopscr(6-cnt)
+					stopscrline(7-cnt)=stopscrline(6-cnt)
+				loop
+				stopscrline(0)=scriptline
+				stopscr(0)=scripts
+			}
+			sdim scripts,640000
+			bload systemroot+"\\bin\\"+meirei+".sh",scripts
+			scriptline=0
+			setvalue "scriptnest",str(int(valueshow("scriptnest"))+1)
+			setvalue "doing","50"
+			repeat 20
+					setvalue "@ASCCALL"+cnt,valueshow("@"+cnt),8
+			loop
+			goto *endcom_scr
+		}else{
+		}
+	consoleadd "Unknown Command.:\""+meirei+"\"\n"
+	setvalue "ERRORCODE","10"
+*endcom
+*endcom_scr
+	if int(valueshow("doing"))=150:setvalue "doing","50"
+	if int(valueshow("doing"))=100:setvalue "doing","30"
+	stdrunclear
+	return
+	
+*oppara
+	kaisekival=0
+*oppararev
+	repeat 256
+		stdrunpl=stdrunin
+		if getvalue(cnt,0)!"":strrep stdrunin,""+"%"+getvalue(cnt,0)+"%",getvalue(cnt,1)
+		if stdrunpl!stdrunin:continue 0
+	loop
+	stdrunpl=stdrunin
+	
+	getstr meirei,stdrunin,0,' '
+	valall=strmid(stdrunin,strsize,strlen(stdrunin))
+	setvalue "@Aall",valall,8
+	repeat 20
+		meireipal(cnt)=""
+		kaisekival+=strsize
+		getstr meireipal(cnt),stdrunin,kaisekival,' '
+		setvalue "@"+cnt,meireipal(cnt),8
+		if int(valueshow("doing"))=100{
+			setvalue "@"+cnt,meireipal(cnt),8
+		}
+	loop
+	sccall=0
+	return
+*errorsys
+	consoleadd "An uncontemplated error occured! Error code="+iparam+","+wparam+","+lparam
+	stop
+*keyput
+	logmes "Key!"
+	tmp=int(iparam)
+	return
